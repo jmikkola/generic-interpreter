@@ -1,3 +1,6 @@
+class ReturnException(Exception):
+    def __init__(self, ret_value):
+        self.ret_value = ret_value
 
 class Expression:
     def compute(self, ctx):
@@ -47,6 +50,42 @@ class BinaryExpression(Expression):
         else:
             raise Exception('unknown op: ' + repr(self.op))
 
+
+class LambdaExpression(Expression):
+    def __init__(self, arg_names, body):
+        self.arg_names = arg_names
+        self.body = body
+
+    def compute(self, ctx):
+        return self
+
+    def function_call(self, ctx, arg_values):
+        ctx.push_scope()
+
+        for (name, value) in zip(self.arg_names, arg_values):
+            ctx.set_var(name, value)
+
+        try:
+            ret_value = self.body.compute(ctx)
+        except ReturnException as e:
+            ret_value = e.ret_value
+        ctx.pop_scope()
+        return ret_value
+
+
+class FunctionApplication(Expression):
+    def __init__(self, fn_expr, arg_exprs):
+        self.fn_expr = fn_expr
+        self.arg_exprs = arg_exprs
+
+    def compute(self, ctx):
+        fn = self.fn_expr.compute(ctx)  # usually a variable lookup
+        arg_values = [
+            arg_expr.compute(ctx) for arg_expr in self.arg_exprs
+        ]
+        return fn.function_call(ctx, arg_values)
+
+
 class Context:
     def __init__(self):
         self.scopes = [{}]
@@ -66,8 +105,8 @@ class Context:
 
 def main():
     ctx = Context()
-    ctx.set_var('x', 123)
-    expr = BinaryExpression('+', VarExpression('x'), ValueExpression(456))
+    ctx.set_var('double', LambdaExpression(['n'], BinaryExpression('*', VarExpression('n'), ValueExpression(2))))
+    expr = FunctionApplication(VarExpression('double'), [ValueExpression(100)])
     result = expr.compute(ctx)
     print(result)
 
