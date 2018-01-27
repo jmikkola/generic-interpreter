@@ -50,6 +50,26 @@ class BinaryExpression(Expression):
         else:
             raise Exception('unknown op: ' + repr(self.op))
 
+class IfExpression(Expression):
+    def __init__(self, test, ifcase, elsecase):
+        self.test = test
+        self.ifcase = ifcase
+        self.elsecase = elsecase
+
+    def compute(self, ctx):
+        if self.test.compute(ctx):
+            return self.ifcase.compute(ctx)
+        else:
+            return self.elsecase.compute(ctx)
+
+
+class SetExpression(Expression):
+    def __init__(self, var, value):
+        self.var = var
+        self.value = value
+
+    def compute(self, ctx):
+        ctx.set_var(self.var, ctx.compute(self.value))
 
 class LambdaExpression(Expression):
     def __init__(self, arg_names, body):
@@ -87,11 +107,15 @@ class FunctionApplication(Expression):
 
 
 class Context:
-    def __init__(self):
+    def __init__(self, global_scope):
         self.scopes = [{}]
+        self.global_scope = global_scope
 
     def get_var(self, name):
-        return self.scopes[-1][name]
+        if name in self.scopes[-1]:
+            return self.scopes[-1][name]
+        else:
+            return self.global_scope[name]
 
     def set_var(self, name, value):
         self.scopes[-1][name] = value
@@ -104,11 +128,26 @@ class Context:
 
 
 def main():
-    ctx = Context()
-    ctx.set_var('double', LambdaExpression(['n'], BinaryExpression('*', VarExpression('n'), ValueExpression(2))))
-    expr = FunctionApplication(VarExpression('double'), [ValueExpression(100)])
-    result = expr.compute(ctx)
-    print(result)
+    ctx = Context({
+        'double': LambdaExpression(['n'], BinaryExpression('*', VarExpression('n'), ValueExpression(2))),
+        'fib': LambdaExpression(
+            ['n'],
+            IfExpression(
+                BinaryExpression('<', VarExpression('n'), ValueExpression(2)),
+                VarExpression('n'),
+                BinaryExpression(
+                    '+',
+                    FunctionApplication(VarExpression('fib'), [BinaryExpression('-', VarExpression('n'), ValueExpression(1))]),
+                    FunctionApplication(VarExpression('fib'), [BinaryExpression('-', VarExpression('n'), ValueExpression(2))]),
+                ),
+            ),
+        ),
+    })
+
+    for i in range(20):
+        expr = FunctionApplication(VarExpression('fib'), [ValueExpression(i)])
+        result = expr.compute(ctx)
+        print(result)
 
 if __name__ == '__main__':
     main()
