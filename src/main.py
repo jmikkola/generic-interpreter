@@ -105,6 +105,18 @@ class FunctionApplication(Expression):
         ]
         return fn.function_call(ctx, arg_values)
 
+class BlockExpression(Expression):
+    def __init__(self, statements):
+        self.statements = statements
+
+    def compute(self, ctx):
+        result = None
+
+        for stmt in self.statements:
+            result = stmt.compute(ctx)
+
+        return result
+
 
 class Context:
     def __init__(self, global_scope):
