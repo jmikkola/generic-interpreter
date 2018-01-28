@@ -1,6 +1,7 @@
 import unittest
 
 from .interpreter import *
+from .parser import parse
 
 class InterpreterTest(unittest.TestCase):
     def test_builtins(self):
@@ -19,25 +20,14 @@ class InterpreterTest(unittest.TestCase):
         self.assertEqual(True, foo_called[0])
 
     def test_recursive_functions(self):
-        ctx = Context({
-            'factorial': LambdaExpression(
-                ['n'],
-                IfExpression(
-                    BinaryExpression('<', VarExpression('n'), ValueExpression(2)),
-                    ValueExpression(1),
-                    BinaryExpression(
-                        '*',
-                        VarExpression('n'),
-                        FunctionApplication(
-                            VarExpression('factorial'),
-                            [BinaryExpression('-', VarExpression('n'), ValueExpression(1))],
-                        ),
-                    ),
-                ),
-            ),
-        })
-        expr = FunctionApplication(VarExpression('factorial'), [ValueExpression(5)])
-        self.assertEqual(120, expr.compute(ctx))
+        text = '''
+        (lambda (n) (if (< n 2) 1 (* n (factorial (- n 1)))))
+        (factorial 5)
+        '''
+        exprs = parse(text)
+        ctx = Context({'factorial': exprs[0]})
+        self.assertEqual(120, exprs[1].compute(ctx))
+
 
 if __name__ == '__main__':
     unittest.main()

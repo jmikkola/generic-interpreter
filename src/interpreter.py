@@ -1,10 +1,52 @@
+_bin_ops = set('+ - * / == < > && ||'.split())
+
+
+def read_ast(tree):
+    if isinstance(tree, str):
+        return VarExpression(tree)
+    elif isinstance(tree, int) or isinstance(tree, float) or isinstance(tree, bool):
+        return ValueExpression(tree)
+    else:
+        if not tree:
+            return []
+        kind = tree[0]
+        if kind == 'lambda':
+            assert(len(tree) == 3)
+            return LambdaExpression(tree[1], read_ast(tree[2]))
+        elif kind == 'block':
+            return BlockExpression([read_ast(child) for child in tree[1:]])
+        elif kind == 'set':
+            assert(len(tree) == 3)
+            return SetExpression(tree[1], read_ast(tree[2]))
+        elif kind == 'if':
+            assert(len(tree) == 4)
+            return IfExpression(read_ast(tree[1]), read_ast(tree[2]), read_ast(tree[3]))
+        elif kind == 'return':
+            assert(len(tree) <= 2)
+            if len(tree) == 1:
+                expr = ValueExpression(None)
+            else:
+                expr = read_ast(tree[1])
+            return ReturnException(expr)
+        elif kind in _bin_ops:
+            assert(len(tree) == 3)
+            return BinaryExpression(kind, read_ast(tree[1]), read_ast(tree[2]))
+        else:
+            return FunctionApplication(
+                VarExpression(kind),
+                [read_ast(child) for child in tree[1:]]
+            )
+
+
 class ReturnException(Exception):
     def __init__(self, ret_value):
         self.ret_value = ret_value
 
+
 class Expression:
     def compute(self, ctx):
         pass
+
 
 class ValueExpression(Expression):
     def __init__(self, value):
@@ -13,12 +55,20 @@ class ValueExpression(Expression):
     def compute(self, ctx):
         return self.value
 
+    def __str__(self):
+        return str(self.value)
+
+
 class VarExpression(Expression):
     def __init__(self, name):
         self.name = name
 
     def compute(self, ctx):
         return ctx.get_var(self.name)
+
+    def __str__(self):
+        return self.name
+
 
 class BinaryExpression(Expression):
     def __init__(self, op, left, right):
@@ -50,6 +100,10 @@ class BinaryExpression(Expression):
         else:
             raise Exception('unknown op: ' + repr(self.op))
 
+    def __str__(self):
+        return '({} {} {})'.format(self.op, self.left, self.right)
+
+
 class IfExpression(Expression):
     def __init__(self, test, ifcase, elsecase):
         self.test = test
@@ -62,6 +116,9 @@ class IfExpression(Expression):
         else:
             return self.elsecase.compute(ctx)
 
+    def __str__(self):
+        return '(if {} {} {})'.format(self.test, self.ifcase, self.elsecase)
+
 
 class SetExpression(Expression):
     def __init__(self, var, value):
@@ -70,6 +127,10 @@ class SetExpression(Expression):
 
     def compute(self, ctx):
         ctx.set_var(self.var, ctx.compute(self.value))
+
+    def __str__(self):
+        return '(set {} {})'.format(self.var, self.value)
+
 
 class LambdaExpression(Expression):
     def __init__(self, arg_names, body):
@@ -92,6 +153,9 @@ class LambdaExpression(Expression):
         ctx.pop_scope()
         return ret_value
 
+    def __str__(self):
+        return '(lambda ({}) {})'.format(' '.join(self.arg_names), self.body)
+
 
 class BuiltinFunction(Expression):
     def __init__(self, fn):
@@ -102,6 +166,9 @@ class BuiltinFunction(Expression):
 
     def function_call(self, ctx, arg_values):
         return self.fn(*arg_values)
+
+    def __str__(self):
+        return '<builtin>'
 
 
 class GenericFunction(Expression):
@@ -116,6 +183,9 @@ class GenericFunction(Expression):
         fn = self.ctx.lookup_generic(self.class_name, self.function_name, arg_values)
         return fn.function_call(ctx, arg_values)
 
+    def __str__(self):
+        return self.function_name
+
 
 class FunctionApplication(Expression):
     def __init__(self, fn_expr, arg_exprs):
@@ -129,6 +199,26 @@ class FunctionApplication(Expression):
         ]
         return fn.function_call(ctx, arg_values)
 
+    def __str__(self):
+        if self.arg_exprs:
+            arg_str = ' '.join(str(a) for a in self.arg_exprs)
+            return '({} {})'.format(self.fn_expr, arg_str)
+        else:
+            return '({})'.format(self.fn_expr)
+
+
+class ReturnExpression(Expression):
+    def __init__(self, expr):
+        self.expr = expr
+
+    def compute(self, ctx):
+        value = self.expr.compute(ctx)
+        raise ReturnException(value)
+
+    def __str__(self):
+        return '(return {})'.format(self.expr)
+
+
 class BlockExpression(Expression):
     def __init__(self, statements):
         self.statements = statements
@@ -140,6 +230,10 @@ class BlockExpression(Expression):
             result = stmt.compute(ctx)
 
         return result
+
+    def __str__(self):
+        inner = ' '.join(str(s) for s in self.statements)
+        return '({})'.format(inner)
 
 
 class Context:
