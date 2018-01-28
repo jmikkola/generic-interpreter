@@ -36,6 +36,31 @@ class InterpreterTest(unittest.TestCase):
         ctx = Context({})
         self.assertEqual(13, exprs[0].compute(ctx))
 
+    def test_generics(self):
+        text = '''
+        (lambda (person) (return (+ "Hello, " (. person name))))
+        (lambda (dog) "Woof!")
+        (greet (new Person name "Joe"))
+        (greet (new Dog))
+        '''
+        exprs = parse(text)
+
+        ctx = Context({})
+        ctx.add_class('Greeter', ['greet'])
+        ctx.add_instance('Greeter', {
+            'greet': FunctionMatcher(exprs[0], {
+                0: TypeMatcher(t='Person'),
+            }),
+        })
+        ctx.add_instance('Greeter', {
+            'greet': FunctionMatcher(exprs[1], {
+                0: TypeMatcher(t='Dog'),
+            }),
+        })
+
+        self.assertEqual('Hello, Joe', exprs[2].compute(ctx))
+        self.assertEqual('Woof!', exprs[3].compute(ctx))
+
 
 if __name__ == '__main__':
     unittest.main()

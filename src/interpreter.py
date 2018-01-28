@@ -1,8 +1,14 @@
+import json
+
 _bin_ops = set('+ - * / == < > && ||'.split())
 
 
 def read_ast(tree):
     if isinstance(tree, str):
+        if tree.startswith('"') and tree.endswith('"'):
+            # hacky way to read strings
+            val = json.loads(tree)
+            return ValueExpression(val)
         return VarExpression(tree)
     elif isinstance(tree, int) or isinstance(tree, float) or isinstance(tree, bool):
         return ValueExpression(tree)
@@ -27,7 +33,7 @@ def read_ast(tree):
                 expr = ValueExpression(None)
             else:
                 expr = read_ast(tree[1])
-            return ReturnException(expr)
+            return ReturnExpression(expr)
         elif kind == 'new':
             assert(len(tree) > 1)
             assert(len(tree) % 2 == 0)
@@ -236,7 +242,7 @@ class GenericFunction(Expression):
         return self
 
     def function_call(self, ctx, arg_values):
-        fn = self.ctx.lookup_generic(self.class_name, self.function_name, arg_values)
+        fn = ctx.lookup_generic(self.class_name, self.function_name, arg_values)
         return fn.function_call(ctx, arg_values)
 
     def __str__(self):
@@ -296,12 +302,18 @@ class Context:
     def __init__(self, global_scope):
         self.scopes = [{}]
         self.global_scope = global_scope
+        self.generic_classes = {}
+        self.generic_functions_to_class = {}
 
     def get_var(self, name):
         if name in self.scopes[-1]:
             return self.scopes[-1][name]
-        else:
+        elif name in self.global_scope:
             return self.global_scope[name]
+        elif name in self.generic_functions_to_class:
+            return GenericFunction(self.generic_functions_to_class[name], name)
+        else:
+            raise Exception(name + ' is undefined')
 
     def set_var(self, name, value):
         self.scopes[-1][name] = value
@@ -312,5 +324,54 @@ class Context:
     def pop_scope(self):
         self.scopes.pop()
 
+    def add_class(self, class_name, func_names):
+        self.generic_classes[class_name] = GenericClass(class_name, func_names)
+        for name in func_names:
+            self.generic_functions_to_class[name] = class_name
+
+    def add_instance(self, class_name, function_matchers):
+        gen_class = self.generic_classes[class_name]
+        gen_class.add_instance(function_matchers)
+
     def lookup_generic(self, class_name, function_name, arg_values):
-        raise NotImplementedError()
+        gen_class = self.generic_classes[class_name]
+        return gen_class.lookup_concrete(function_name, arg_values)
+
+
+class GenericClass:
+    def __init__(self, class_name, func_names):
+        self.class_name = class_name
+        self.func_names = func_names
+        self.functions = {name: [] for name in func_names}
+
+    def add_instance(self, function_matchers):
+        assert(set(function_matchers.keys()) == set(self.func_names))
+        for name, matcher in function_matchers.items():
+            self.functions[name].append(matcher)
+
+    def lookup_concrete(self, function_name, arg_values):
+        for matcher in self.functions[function_name]:
+            if matcher.matches(arg_values):
+                return matcher.function
+        raise Exception('generic instance not found')
+
+
+class FunctionMatcher:
+    def __init__(self, function, arg_matchers):
+        assert(len(arg_matchers) > 0)
+        self.function = function
+        self.arg_matchers = arg_matchers
+
+    def matches(self, arg_values):
+        for key, arg_matcher in self.arg_matchers.items():
+            if not arg_matcher.matches(arg_values[key]):
+                return False
+        return True
+
+
+class TypeMatcher:
+    def __init__(self, t):
+        self.t = t
+
+    def matches(self, value):
+        return isinstance(value, StructureVal) and value.struct_name == self.t
