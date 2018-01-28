@@ -61,6 +61,31 @@ class InterpreterTest(unittest.TestCase):
         self.assertEqual('Hello, Joe', exprs[2].compute(ctx))
         self.assertEqual('Woof!', exprs[3].compute(ctx))
 
+    def test_short_circuit(self):
+        text = '''
+        (and #t (log "good" #t))  ;; expected: True
+        (and #t (log "good" #f))  ;; expected: False
+        (and #f (log "error" #t)) ;; expected: False
+        (or #f (log "good" #t))   ;; expected: True
+        (or #f (log "good" #f))   ;; expected: False
+        (or #t (log "error" #t))  ;; expected: True
+        '''
+        exprs = parse(text)
+
+        logs = []
+        def log_and_return(message, value):
+            logs.append(message)
+            return value
+
+        ctx = Context({
+            'log': BuiltinFunction(log_and_return),
+        })
+
+        expectations = [True, False, False, True, False, True]
+        for (expected, expr) in zip(expectations, exprs):
+            self.assertEqual(expected, expr.compute(ctx))
+        self.assertEqual(logs, ["good"] * 4)
+
 
 if __name__ == '__main__':
     unittest.main()

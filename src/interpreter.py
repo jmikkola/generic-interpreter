@@ -1,15 +1,19 @@
 import json
-
-_bin_ops = set('+ - * / == < > && ||'.split())
+import operator
 
 
 def read_ast(tree):
     if isinstance(tree, str):
-        if tree.startswith('"') and tree.endswith('"'):
+        if tree == '#t':
+            return ValueExpression(True)
+        elif tree == '#f':
+            return ValueExpression(False)
+        elif tree.startswith('"') and tree.endswith('"'):
             # hacky way to read strings
             val = json.loads(tree)
             return ValueExpression(val)
-        return VarExpression(tree)
+        else:
+            return VarExpression(tree)
     elif isinstance(tree, int) or isinstance(tree, float) or isinstance(tree, bool):
         return ValueExpression(tree)
     else:
@@ -42,12 +46,25 @@ def read_ast(tree):
                 for name, expr in zip(tree[2::2], tree[3::2])
             ]
             return StructureExpression(tree[1], fields)
+        elif kind == 'and':
+            assert(len(tree) == 3)
+            # Treat 'and' as a macro
+            return IfExpression(
+                read_ast(tree[1]),
+                read_ast(tree[2]),
+                ValueExpression(False),
+            )
+        elif kind == 'or':
+            assert(len(tree) == 3)
+            # Treat 'or' as a macro
+            return IfExpression(
+                read_ast(tree[1]),
+                ValueExpression(True),
+                read_ast(tree[2]),
+            )
         elif kind == '.':
             assert(len(tree) == 3)
             return StructureAccessExpression(read_ast(tree[1]), tree[2])
-        elif kind in _bin_ops:
-            assert(len(tree) == 3)
-            return BinaryExpression(kind, read_ast(tree[1]), read_ast(tree[2]))
         else:
             return FunctionApplication(
                 VarExpression(kind),
@@ -130,40 +147,6 @@ class StructureAccessExpression(Expression):
 
     def __str__(self):
         return '(. {} {})'.format(self.expr, self.field_name)
-
-
-class BinaryExpression(Expression):
-    def __init__(self, op, left, right):
-        self.op = op
-        self.left = left
-        self.right = right
-
-    def compute(self, ctx):
-        lval = self.left.compute(ctx)
-        rval = self.right.compute(ctx)
-        if self.op == '+':
-            return lval + rval
-        elif self.op == '-':
-            return lval - rval
-        elif self.op == '*':
-            return lval * rval
-        elif self.op == '/':
-            return lval / rval
-        elif self.op == '==':
-            return lval == rval
-        elif self.op == '>':
-            return lval > rval
-        elif self.op == '<':
-            return lval < rval
-        elif self.op == '&&':
-            return lval and rval
-        elif self.op == '||':
-            return lval or rval
-        else:
-            raise Exception('unknown op: ' + repr(self.op))
-
-    def __str__(self):
-        return '({} {} {})'.format(self.op, self.left, self.right)
 
 
 class IfExpression(Expression):
@@ -301,9 +284,21 @@ class BlockExpression(Expression):
 class Context:
     def __init__(self, global_scope):
         self.scopes = [{}]
-        self.global_scope = global_scope
+        self.global_scope = self._default_globals()
+        self.global_scope.update(global_scope)
         self.generic_classes = {}
         self.generic_functions_to_class = {}
+
+    def _default_globals(self):
+        return {
+            '+': BuiltinFunction(operator.add),
+            '-': BuiltinFunction(operator.sub),
+            '*': BuiltinFunction(operator.mul),
+            '/': BuiltinFunction(operator.truediv),
+            '==': BuiltinFunction(operator.eq),
+            '<': BuiltinFunction(operator.lt),
+            '>': BuiltinFunction(operator.gt),
+        }
 
     def get_var(self, name):
         if name in self.scopes[-1]:
