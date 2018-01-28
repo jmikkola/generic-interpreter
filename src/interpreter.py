@@ -33,6 +33,9 @@ def read_ast(tree):
             return IfExpression(
                 read_ast(tree[1]), read_ast(tree[2]), read_ast(tree[3]),
             )
+        elif kind == 'while':
+            assert(len(tree) == 3)
+            return WhileExpression(read_ast(tree[1]), read_ast(tree[2]))
         elif kind == 'return':
             assert(len(tree) <= 2)
             if len(tree) == 1:
@@ -167,16 +170,33 @@ class IfExpression(Expression):
         return '(if {} {} {})'.format(self.test, self.ifcase, self.elsecase)
 
 
-class SetExpression(Expression):
-    def __init__(self, var, value):
-        self.var = var
-        self.value = value
+class WhileExpression(Expression):
+    def __init__(self, test, body):
+        self.test = test
+        self.body = body
 
     def compute(self, ctx):
-        ctx.set_var(self.var, ctx.compute(self.value))
+        result = None
+        while self.test.compute(ctx):
+            result = self.body.compute(ctx)
+        return result
 
     def __str__(self):
-        return '(set {} {})'.format(self.var, self.value)
+        return '(while {} {})'.format(self.test, self.body)
+
+
+class SetExpression(Expression):
+    def __init__(self, var, expr):
+        self.var = var
+        self.expr = expr
+
+    def compute(self, ctx):
+        value = self.expr.compute(ctx)
+        ctx.set_var(self.var, value)
+        return value
+
+    def __str__(self):
+        return '(set {} {})'.format(self.var, self.expr)
 
 
 class LambdaExpression(Expression):

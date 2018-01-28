@@ -98,6 +98,25 @@ class InterpreterTest(unittest.TestCase):
             self.assertEqual(expected, expr.compute(ctx))
         self.assertEqual(logs, ["good"] * 4)
 
+    def test_while(self):
+        text = '''
+        (block
+            (set x 30)
+            (set n 1)
+            (while (> x 1)
+                (block
+                    (set n (* n x))
+                    (set x (- x 1))))
+            n)
+        '''
+        exprs = parse(text)
+
+        ctx = Context({})
+        self.assertEqual(
+            265252859812191058636308480000000,
+            exprs[0].compute(ctx),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
