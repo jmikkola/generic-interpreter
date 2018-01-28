@@ -104,6 +104,19 @@ class BuiltinFunction(Expression):
         return self.fn(*arg_values)
 
 
+class GenericFunction(Expression):
+    def __init__(self, class_name, function_name):
+        self.class_name = class_name
+        self.function_name = function_name
+
+    def compute(self, ctx):
+        return self
+
+    def function_call(self, ctx, arg_values):
+        fn = self.ctx.lookup_generic(self.class_name, self.function_name, arg_values)
+        return fn.function_call(ctx, arg_values)
+
+
 class FunctionApplication(Expression):
     def __init__(self, fn_expr, arg_exprs):
         self.fn_expr = fn_expr
@@ -148,6 +161,9 @@ class Context:
 
     def pop_scope(self):
         self.scopes.pop()
+
+    def lookup_generic(self, class_name, function_name, arg_values):
+        raise NotImplementedError()
 
 
 def main():
