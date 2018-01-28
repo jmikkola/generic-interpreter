@@ -13,7 +13,7 @@ def main():
     ctx = Context({
         'double': exprs[0],
         'fib': exprs[1],
-        'print': BuiltinFunction(print),
+        'print': BuiltinFunction(print, 'print'),
     })
 
     expr = exprs[2]

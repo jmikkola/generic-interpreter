@@ -21,7 +21,7 @@ class InterpreterTest(unittest.TestCase):
             return 2 * x
 
         ctx = Context({
-            'foo': BuiltinFunction(foo),
+            'foo': BuiltinFunction(foo, 'foo'),
         })
         expr = FunctionApplication(
             VarExpression('foo'), [ValueExpression(100)],
@@ -90,7 +90,7 @@ class InterpreterTest(unittest.TestCase):
             return value
 
         ctx = Context({
-            'log': BuiltinFunction(log_and_return),
+            'log': BuiltinFunction(log_and_return, 'log'),
         })
 
         expectations = [True, False, False, True, False, True]
@@ -116,6 +116,38 @@ class InterpreterTest(unittest.TestCase):
             265252859812191058636308480000000,
             exprs[0].compute(ctx),
         )
+
+    def test_self_parses(self):
+        ''' ensure that the __str__ method returns a parsable result '''
+        text = '''
+        (block
+            (set x 10)
+            (set n 1)
+            (while (> x 1)
+                (block
+                    (set n (* n x))
+                    (set x (- x 1))))
+            n)
+        ((lambda (n) (+ n 1)) 234)
+        (foo 123 123.45 #t #f #nil "a string")
+        (and (or #t #f) #t)
+        (if 1 2 3)
+        (. (new MyStruct foo 123 bar (+ 10 3)) bar)
+        '''
+        exprs = parse(text)
+
+        ctx = Context({
+            'foo': BuiltinFunction(lambda *a: list(a), 'foo'),
+        })
+
+        foo_values = [123, 123.45, True, False, None, 'a string']
+        expected_values = [3628800, 235, foo_values, True, 2, 13]
+        for (expected, expr) in zip(expected_values, exprs):
+            text1 = str(expr)
+            expr2 = parse(text1)
+            text2 = str(expr2[0])
+            self.assertEqual(text1, text2)
+            self.assertEqual(expected, expr2[0].compute(ctx))
 
 
 if __name__ == '__main__':

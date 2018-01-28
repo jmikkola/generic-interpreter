@@ -8,6 +8,8 @@ def read_ast(tree):
             return ValueExpression(True)
         elif tree == '#f':
             return ValueExpression(False)
+        elif tree == '#nil':
+            return ValueExpression(None)
         elif tree.startswith('"') and tree.endswith('"'):
             # hacky way to read strings
             val = json.loads(tree)
@@ -72,7 +74,7 @@ def read_ast(tree):
             return StructureAccessExpression(read_ast(tree[1]), tree[2])
         else:
             return FunctionApplication(
-                VarExpression(kind),
+                read_ast(kind),
                 [read_ast(child) for child in tree[1:]]
             )
 
@@ -95,11 +97,21 @@ class ValueExpression(Expression):
         return self.value
 
     def __str__(self):
-        return str(self.value)
+        if self.value is None:
+            return '#nil'
+        elif self.value is True:
+            return '#t'
+        elif self.value is False:
+            return '#f'
+        elif isinstance(self.value, str):
+            return json.dumps(self.value)
+        else:
+            return str(self.value)
 
 
 class VarExpression(Expression):
     def __init__(self, name):
+        assert(isinstance(name, str))
         self.name = name
 
     def compute(self, ctx):
@@ -225,8 +237,9 @@ class LambdaExpression(Expression):
 
 
 class BuiltinFunction(Expression):
-    def __init__(self, fn):
+    def __init__(self, fn, name):
         self.fn = fn
+        self.name = name
 
     def compute(self, ctx):
         return self
@@ -235,7 +248,7 @@ class BuiltinFunction(Expression):
         return self.fn(*arg_values)
 
     def __str__(self):
-        return '<builtin>'
+        return self.name
 
 
 class GenericFunction(Expression):
@@ -302,7 +315,7 @@ class BlockExpression(Expression):
 
     def __str__(self):
         inner = ' '.join(str(s) for s in self.statements)
-        return '({})'.format(inner)
+        return '(block {})'.format(inner)
 
 
 class Context:
@@ -315,13 +328,13 @@ class Context:
 
     def _default_globals(self):
         return {
-            '+': BuiltinFunction(operator.add),
-            '-': BuiltinFunction(operator.sub),
-            '*': BuiltinFunction(operator.mul),
-            '/': BuiltinFunction(operator.truediv),
-            '==': BuiltinFunction(operator.eq),
-            '<': BuiltinFunction(operator.lt),
-            '>': BuiltinFunction(operator.gt),
+            '+': BuiltinFunction(operator.add, '+'),
+            '-': BuiltinFunction(operator.sub, '-'),
+            '*': BuiltinFunction(operator.mul, '*'),
+            '/': BuiltinFunction(operator.truediv, '/'),
+            '==': BuiltinFunction(operator.eq, '=='),
+            '<': BuiltinFunction(operator.lt, '<'),
+            '>': BuiltinFunction(operator.gt, '>'),
         }
 
     def get_var(self, name):
