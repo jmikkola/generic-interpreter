@@ -8,3 +8,4 @@ TAGS
 env
 build
 __pycache__
+.coverage
