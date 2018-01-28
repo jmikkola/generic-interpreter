@@ -28,6 +28,17 @@ def read_ast(tree):
             else:
                 expr = read_ast(tree[1])
             return ReturnException(expr)
+        elif kind == 'new':
+            assert(len(tree) > 1)
+            assert(len(tree) % 2 == 0)
+            fields = [
+                (name, read_ast(expr))
+                for name, expr in zip(tree[2::2], tree[3::2])
+            ]
+            return StructureExpression(tree[1], fields)
+        elif kind == '.':
+            assert(len(tree) == 3)
+            return StructureAccessExpression(read_ast(tree[1]), tree[2])
         elif kind in _bin_ops:
             assert(len(tree) == 3)
             return BinaryExpression(kind, read_ast(tree[1]), read_ast(tree[2]))
@@ -68,6 +79,51 @@ class VarExpression(Expression):
 
     def __str__(self):
         return self.name
+
+
+class StructureVal:
+    def __init__(self, struct_name, fields):
+        self.struct_name = struct_name
+        self.fields = fields
+
+    def get_field(self, name):
+        return self.fields.get(name)
+
+
+class StructureExpression(Expression):
+    def __init__(self, struct_name, fields):
+        self.struct_name = struct_name
+        self.fields = fields
+
+    def compute(self, ctx):
+        field_values = {
+            name: expr.compute(ctx)
+            for name, expr in self.fields
+        }
+        return StructureVal(self.struct_name, field_values)
+
+    def __str__(self):
+        fields_str = ''
+        if self.fields:
+            field_strs = [
+                '{} {}'.format(name, expr)
+                for name, expr in self.fields
+            ]
+            fields_str = ' ' + ' '.join(field_strs)
+        return '(new {}{})'.format(self.struct_name, fields_str)
+
+
+class StructureAccessExpression(Expression):
+    def __init__(self, expr, field_name):
+        self.expr = expr
+        self.field_name = field_name
+
+    def compute(self, ctx):
+        structure_val = self.expr.compute(ctx)
+        return structure_val.get_field(self.field_name)
+
+    def __str__(self):
+        return '(. {} {})'.format(self.expr, self.field_name)
 
 
 class BinaryExpression(Expression):

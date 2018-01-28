@@ -28,6 +28,14 @@ class InterpreterTest(unittest.TestCase):
         ctx = Context({'factorial': exprs[0]})
         self.assertEqual(120, exprs[1].compute(ctx))
 
+    def test_structures(self):
+        text = '''
+        (. (new MyStruct foo 123 bar (+ 10 3)) bar)
+        '''
+        exprs = parse(text)
+        ctx = Context({})
+        self.assertEqual(13, exprs[0].compute(ctx))
+
 
 if __name__ == '__main__':
     unittest.main()
