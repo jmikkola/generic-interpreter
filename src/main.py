@@ -93,6 +93,17 @@ class LambdaExpression(Expression):
         return ret_value
 
 
+class BuiltinFunction(Expression):
+    def __init__(self, fn):
+        self.fn = fn
+
+    def compute(self, ctx):
+        return self
+
+    def function_call(self, ctx, arg_values):
+        return self.fn(*arg_values)
+
+
 class FunctionApplication(Expression):
     def __init__(self, fn_expr, arg_exprs):
         self.fn_expr = fn_expr
@@ -154,12 +165,14 @@ def main():
                 ),
             ),
         ),
+        'print': BuiltinFunction(print),
     })
 
-    for i in range(20):
-        expr = FunctionApplication(VarExpression('fib'), [ValueExpression(i)])
-        result = expr.compute(ctx)
-        print(result)
+    expr = FunctionApplication(
+        VarExpression('print'),
+        [FunctionApplication(VarExpression('fib'), [ValueExpression(20)])],
+    )
+    expr.compute(ctx)
 
 if __name__ == '__main__':
     main()
