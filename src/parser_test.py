@@ -1,6 +1,6 @@
 import unittest
 
-from .parser import tokenize, parse_tokens
+from parser import tokenize, parse_tokens
 
 
 class ParserTest(unittest.TestCase):

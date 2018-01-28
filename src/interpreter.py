@@ -14,7 +14,7 @@ def read_ast(tree):
             return ValueExpression(val)
         else:
             return VarExpression(tree)
-    elif isinstance(tree, int) or isinstance(tree, float) or isinstance(tree, bool):
+    elif isinstance(tree, int) or isinstance(tree, float):
         return ValueExpression(tree)
     else:
         if not tree:
@@ -30,7 +30,9 @@ def read_ast(tree):
             return SetExpression(tree[1], read_ast(tree[2]))
         elif kind == 'if':
             assert(len(tree) == 4)
-            return IfExpression(read_ast(tree[1]), read_ast(tree[2]), read_ast(tree[3]))
+            return IfExpression(
+                read_ast(tree[1]), read_ast(tree[2]), read_ast(tree[3]),
+            )
         elif kind == 'return':
             assert(len(tree) <= 2)
             if len(tree) == 1:
@@ -225,7 +227,9 @@ class GenericFunction(Expression):
         return self
 
     def function_call(self, ctx, arg_values):
-        fn = ctx.lookup_generic(self.class_name, self.function_name, arg_values)
+        fn = ctx.lookup_generic(
+            self.class_name, self.function_name, arg_values,
+        )
         return fn.function_call(ctx, arg_values)
 
     def __str__(self):
@@ -348,7 +352,10 @@ class GenericClass:
         for matcher in self.functions[function_name]:
             if matcher.matches(arg_values):
                 return matcher.function
-        raise Exception('generic instance not found')
+        raise Exception(
+            'generic instance of {} not found for {}'.
+            format(function_name, arg_values),
+        )
 
 
 class FunctionMatcher:

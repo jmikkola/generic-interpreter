@@ -1,7 +1,16 @@
 import unittest
 
-from .interpreter import *
-from .parser import parse
+from interpreter import (
+    BuiltinFunction,
+    Context,
+    FunctionApplication,
+    FunctionMatcher,
+    TypeMatcher,
+    ValueExpression,
+    VarExpression,
+)
+from parser import parse
+
 
 class InterpreterTest(unittest.TestCase):
     def test_builtins(self):
@@ -14,7 +23,9 @@ class InterpreterTest(unittest.TestCase):
         ctx = Context({
             'foo': BuiltinFunction(foo),
         })
-        expr = FunctionApplication(VarExpression('foo'), [ValueExpression(100)])
+        expr = FunctionApplication(
+            VarExpression('foo'), [ValueExpression(100)],
+        )
         result = expr.compute(ctx)
         self.assertEqual(200, result)
         self.assertEqual(True, foo_called[0])
@@ -73,6 +84,7 @@ class InterpreterTest(unittest.TestCase):
         exprs = parse(text)
 
         logs = []
+
         def log_and_return(message, value):
             logs.append(message)
             return value

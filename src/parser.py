@@ -1,9 +1,11 @@
 import re
 
-from .interpreter import read_ast
+from interpreter import read_ast
 
 
-token_re = re.compile(r'([(]|[)]|;;[^\n]*\n|"(?:[^"\\]|\\.)*"|[^\s()]+|\s+|\n)')
+token_re = re.compile(
+    r'([(]|[)]|;;[^\n]*\n|"(?:[^"\\]|\\.)*"|[^\s()]+|\s+|\n)',
+)
 float_re = re.compile(r'^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$')
 
 

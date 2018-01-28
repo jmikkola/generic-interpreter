@@ -1,28 +1,22 @@
-from interpreter import *
+from interpreter import Context, BuiltinFunction
+from parser import parse
 
 
 def main():
+    text = '''
+    (lambda (n) (* n 2))
+    (lambda (n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))
+    (print (fib 20))
+    '''
+    exprs = parse(text)
+
     ctx = Context({
-        'double': LambdaExpression(['n'], BinaryExpression('*', VarExpression('n'), ValueExpression(2))),
-        'fib': LambdaExpression(
-            ['n'],
-            IfExpression(
-                BinaryExpression('<', VarExpression('n'), ValueExpression(2)),
-                VarExpression('n'),
-                BinaryExpression(
-                    '+',
-                    FunctionApplication(VarExpression('fib'), [BinaryExpression('-', VarExpression('n'), ValueExpression(1))]),
-                    FunctionApplication(VarExpression('fib'), [BinaryExpression('-', VarExpression('n'), ValueExpression(2))]),
-                ),
-            ),
-        ),
+        'double': exprs[0],
+        'fib': exprs[1],
         'print': BuiltinFunction(print),
     })
 
-    expr = FunctionApplication(
-        VarExpression('print'),
-        [FunctionApplication(VarExpression('fib'), [ValueExpression(20)])],
-    )
+    expr = exprs[2]
     expr.compute(ctx)
 
 
