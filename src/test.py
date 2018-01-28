@@ -1,6 +1,6 @@
 import unittest
 
-from .main import *
+from .interpreter import *
 
 class InterpreterTest(unittest.TestCase):
     def test_builtins(self):
